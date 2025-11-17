@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: go-wasm-compiler
+    env: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    autoDeploy: true
