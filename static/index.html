@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gogram Playground</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/dracula.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/eclipse.min.css">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-left">
+                <div class="logo">
+                    <svg width="28" height="28" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <!-- Gopher head -->
+                        <circle cx="32" cy="32" r="18" fill="currentColor" opacity="0.15"/>
+                        <!-- Left eye -->
+                        <circle cx="26" cy="28" r="2.5" fill="currentColor"/>
+                        <!-- Right eye -->
+                        <circle cx="38" cy="28" r="2.5" fill="currentColor"/>
+                        <!-- Nose/mouth -->
+                        <path d="M 28 36 Q 32 38 36 36" stroke-linecap="round"/>
+                        <!-- Left ear -->
+                        <path d="M 18 24 Q 16 20 18 16" stroke-linecap="round"/>
+                        <!-- Right ear -->
+                        <path d="M 46 24 Q 48 20 46 16" stroke-linecap="round"/>
+                        <!-- Body hint -->
+                        <ellipse cx="32" cy="48" rx="12" ry="8" fill="currentColor" opacity="0.1"/>
+                        <!-- Code brackets -->
+                        <path d="M 12 30 L 8 32 L 12 34" stroke-width="2" stroke-linecap="round"/>
+                        <path d="M 52 30 L 56 32 L 52 34" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                    <h1>Gogram Playground</h1>
+                </div>
+                <div class="status-indicator" id="statusIndicator">
+                    <span class="status-dot"></span>
+                    <span class="status-text">Ready</span>
+                </div>
+            </div>
+            <div class="header-right">
+                
+                <button class="icon-btn" id="envVarsBtn" title="Environment Variables">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                    </svg>
+                </button>
+                <div class="dropdown">
+                    <button class="icon-btn" id="examplesBtn" title="Load Example">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/>
+                            <polyline points="13 2 13 9 20 9"/>
+                        </svg>
+                    </button>
+                    <div class="dropdown-menu" id="examplesMenu">
+                        <button class="dropdown-item" data-example="basic">Basic Example</button>
+                        <button class="dropdown-item" data-example="version">Check Version</button>
+                        <button class="dropdown-item" data-example="runbot">Run Bot</button>
+                        <button class="dropdown-item" data-example="session">Generate String Session</button>
+                    </div>
+                </div>
+                <button class="icon-btn" id="shortcutsBtn" title="Keyboard Shortcuts">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="2" y="4" width="20" height="16" rx="2"/>
+                        <path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M8 12h.01M12 12h.01M16 12h.01M7 16h10"/>
+                    </svg>
+                </button>
+                <a href="https://github.com/amarnathcjd/gogram" target="_blank" class="icon-btn" title="Gogram Library">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                        <polyline points="14 2 14 8 20 8"/>
+                        <line x1="16" y1="13" x2="8" y2="13"/>
+                        <line x1="16" y1="17" x2="8" y2="17"/>
+                        <polyline points="10 9 9 9 8 9"/>
+                    </svg>
+                </a>
+                <a href="https://github.com/amarnathcjd/gogram-playground-api" target="_blank" class="icon-btn" title="View on GitHub">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/>
+                    </svg>
+                </a>
+                <button id="themeToggle" class="icon-btn" title="Toggle theme">
+                    <svg class="theme-icon sun" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="5"/>
+                        <line x1="12" y1="1" x2="12" y2="3"/>
+                        <line x1="12" y1="21" x2="12" y2="23"/>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+                        <line x1="1" y1="12" x2="3" y2="12"/>
+                        <line x1="21" y1="12" x2="23" y2="12"/>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+                    </svg>
+                    <svg class="theme-icon moon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                    </svg>
+                </button>
+            </div>
+        </header>
+
+        <div class="playground">
+            <div class="editor-section">
+                <div class="section-header">
+                    <span class="section-title">Editor</span>
+                    <div class="actions">
+                        <button id="runBtn" class="btn btn-primary">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polygon points="5 3 19 12 5 21 5 3"/>
+                            </svg>
+                            Run
+                        </button>
+                        <button id="stopBtn" class="btn btn-danger" style="display: none;" title="Stop execution">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                <rect x="6" y="6" width="12" height="12" rx="1"/>
+                            </svg>
+                            Stop
+                        </button>
+                        <button id="clearBtn" class="btn btn-secondary">Clear</button>
+                    </div>
+                </div>
+                
+                <textarea id="editor" spellcheck="false">package main
+
+import (
+	"fmt"
+
+	tg "github.com/amarnathcjd/gogram/telegram"
+)
+
+func main() {
+	fmt.Println(fmt.Sprintf("Gogram Version: %s, TL Layer: %d",
+            tg.Version,
+            tg.ApiVersion))
+}</textarea>
+            </div>
+
+            <div class="output-section">
+                <div class="tabs">
+                    <button class="tab active" data-tab="logs">Build Logs</button>
+                    <button class="tab" data-tab="output">Output</button>
+                </div>
+
+                <div class="tab-content active" id="logs-content">
+                    <div class="output-area" id="buildLogs"></div>
+                </div>
+
+                <div class="tab-content" id="output-content">
+                    <div class="output-area" id="programOutput"></div>
+                    <div class="output-input-wrapper" id="outputInputWrapper" style="display: none;">
+                        <input type="text" id="outputInput" class="output-input" placeholder="Enter input..." />
+                    </div>
+                </div>
+                
+                <!-- Environment Variables Panel -->
+                <div class="env-vars-panel" id="envVarsPanel" style="display: none;">
+                    <div class="env-vars-header">
+                        <span class="env-vars-title">Environment Variables</span>
+                        <button id="addEnvBtn" class="btn-small">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="12" y1="5" x2="12" y2="19"/>
+                                <line x1="5" y1="12" x2="19" y2="12"/>
+                            </svg>
+                            Add
+                        </button>
+                    </div>
+                    <div class="env-vars-list" id="envVarsList">
+                        <div class="env-var-empty">No environment variables set. Click "Add" to create one.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <div class="footer-content">
+                <span class="footer-text">Press <kbd>Ctrl</kbd> + <kbd>Enter</kbd> to run</span>
+                <span class="footer-divider">•</span>
+                <a href="https://github.com/AmarnathCJD" target="_blank" class="footer-link">AmarnathCJD</a>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Keyboard Shortcuts Modal -->
+    <div class="modal" id="shortcutsModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Keyboard Shortcuts</h2>
+                <button class="modal-close" id="closeModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="shortcut-item">
+                    <div class="shortcut-keys">
+                        <kbd>Ctrl</kbd> + <kbd>Enter</kbd>
+                    </div>
+                    <div class="shortcut-desc">Run code</div>
+                </div>
+                <div class="shortcut-item">
+                    <div class="shortcut-keys">
+                        <kbd>Ctrl</kbd> + <kbd>S</kbd>
+                    </div>
+                    <div class="shortcut-desc">Format code (auto-save)</div>
+                </div>
+                <div class="shortcut-item">
+                    <div class="shortcut-keys">
+                        <kbd>Ctrl</kbd> + <kbd>/</kbd>
+                    </div>
+                    <div class="shortcut-desc">Toggle comment</div>
+                </div>
+                <div class="shortcut-item">
+                    <div class="shortcut-keys">
+                        <kbd>Alt</kbd> + <kbd>L</kbd>
+                    </div>
+                    <div class="shortcut-desc">Switch to Build Logs</div>
+                </div>
+                <div class="shortcut-item">
+                    <div class="shortcut-keys">
+                        <kbd>Alt</kbd> + <kbd>O</kbd>
+                    </div>
+                    <div class="shortcut-desc">Switch to Output</div>
+                </div>
+                <div class="shortcut-item">
+                    <div class="shortcut-keys">
+                        <kbd>Alt</kbd> + <kbd>E</kbd>
+                    </div>
+                    <div class="shortcut-desc">Toggle Environment Variables</div>
+                </div>
+                <div class="shortcut-item">
+                    <div class="shortcut-keys">
+                        <kbd>Alt</kbd> + <kbd>T</kbd>
+                    </div>
+                    <div class="shortcut-desc">Toggle Theme</div>
+                </div>
+                <div class="shortcut-item">
+                    <div class="shortcut-keys">
+                        <kbd>?</kbd>
+                    </div>
+                    <div class="shortcut-desc">Show Keyboard Shortcuts</div>
+                </div>
+                <div class="shortcut-item">
+                    <div class="shortcut-keys">
+                        <kbd>Esc</kbd>
+                    </div>
+                    <div class="shortcut-desc">Close modal</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/go/go.min.js"></script>
+    <script src="/static/wasm_exec.js"></script>
+    <script src="/static/crypto.js"></script>
+    <script src="/static/app.js"></script>
+</body>
+</html>
