@@ -354,7 +354,21 @@ func keepAliveHandler(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	fmt.Println("[SERVER] Starting Gogram Playground server...")
-	fmt.Printf("[SERVER] Go version: %s\n", os.Getenv("GO_VERSION"))
+
+	// Check if Go is installed
+	goVersion := exec.Command("go", "version")
+	output, err := goVersion.CombinedOutput()
+	if err != nil {
+		fmt.Printf("[FATAL] Go is not installed or not in PATH: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Printf("[SERVER] %s\n", strings.TrimSpace(string(output)))
+
+	// Check GOPATH and GOCACHE
+	goPath := os.Getenv("GOPATH")
+	goCache := os.Getenv("GOCACHE")
+	fmt.Printf("[SERVER] GOPATH: %s\n", goPath)
+	fmt.Printf("[SERVER] GOCACHE: %s\n", goCache)
 
 	http.HandleFunc("/health", healthHandler)
 	http.HandleFunc("/keepalive", keepAliveHandler)
