@@ -131,19 +131,24 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func compileHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("[COMPILE] New compilation request received")
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
+		fmt.Printf("[ERROR] WebSocket upgrade failed: %v\n", err)
 		http.Error(w, err.Error(), 500)
 		return
 	}
 	defer conn.Close()
+	fmt.Println("[COMPILE] WebSocket connection established")
 
 	conn.SetReadDeadline(time.Now().Add(30 * time.Second))
 	_, message, err := conn.ReadMessage()
 	if err != nil {
+		fmt.Printf("[ERROR] Failed to read message: %v\n", err)
 		conn.WriteJSON(map[string]string{"type": "error", "message": "Failed to read message: " + err.Error()})
 		return
 	}
+	fmt.Printf("[COMPILE] Message received, length: %d bytes\n", len(message))
 
 	// Parse JSON payload with code and env vars
 	var payload struct {
@@ -153,22 +158,32 @@ func compileHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := json.Unmarshal(message, &payload); err != nil {
+		fmt.Printf("[ERROR] Failed to parse payload: %v\n", err)
 		conn.WriteJSON(map[string]string{"type": "error", "message": "Failed to parse payload: " + err.Error()})
 		return
 	}
+	fmt.Printf("[COMPILE] Payload parsed, version: %s, env vars: %d\n", payload.Version, len(payload.EnvVars))
 
 	sourceBytes, err := decrypt(payload.Code)
 	if err != nil {
+		fmt.Printf("[ERROR] Failed to decrypt source: %v\n", err)
 		conn.WriteJSON(map[string]string{"type": "error", "message": "Failed to decrypt source: " + err.Error()})
 		return
 	}
+	fmt.Printf("[COMPILE] Code decrypted, length: %d bytes\n", len(sourceBytes))
+
+	sendEncryptedJSON(conn, map[string]string{"type": "log", "message": "Code decrypted successfully"})
 
 	tmpDir, err := os.MkdirTemp("", "jxdb-compile-*")
 	if err != nil {
+		fmt.Printf("[ERROR] Failed to create temp directory: %v\n", err)
 		sendEncryptedJSON(conn, map[string]string{"type": "error", "message": "Failed to create temp directory: " + err.Error()})
 		return
 	}
 	defer os.RemoveAll(tmpDir)
+	fmt.Printf("[COMPILE] Created temp directory: %s\n", tmpDir)
+
+	sendEncryptedJSON(conn, map[string]string{"type": "log", "message": "Created temp directory: " + tmpDir})
 
 	sourceStr := ensureImport(string(sourceBytes))
 
@@ -178,12 +193,19 @@ func compileHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	sendEncryptedJSON(conn, map[string]string{"type": "log", "message": "Written code file"})
+
+	fmt.Println("[COMPILE] Initializing Go module...")
 	modInit := exec.Command("go", "mod", "init", "tempmodule")
 	modInit.Dir = tmpDir
 	if err := modInit.Run(); err != nil {
+		fmt.Printf("[ERROR] Failed to init module: %v\n", err)
 		sendEncryptedJSON(conn, map[string]string{"type": "error", "message": "Failed to init module: " + err.Error()})
 		return
 	}
+	fmt.Println("[COMPILE] Module initialized successfully")
+
+	sendEncryptedJSON(conn, map[string]string{"type": "log", "message": "Initialized Go module"})
 
 	// Determine version suffix
 	version := payload.Version
@@ -205,18 +227,46 @@ func compileHandler(w http.ResponseWriter, r *http.Request) {
 	// }
 
 	sendEncryptedJSON(conn, map[string]string{"type": "log", "message": "Running go mod tidy..."})
+	fmt.Println("[COMPILE] Starting go mod tidy...")
 
 	modTidy := exec.Command("go", "mod", "tidy")
 	modTidy.Dir = tmpDir
 	var tidyStderr bytes.Buffer
+	var tidyStdout bytes.Buffer
 	modTidy.Stderr = &tidyStderr
-	if err := modTidy.Run(); err != nil {
-		sendEncryptedJSON(conn, map[string]string{"type": "error", "message": "go mod tidy failed: " + tidyStderr.String()})
+	modTidy.Stdout = &tidyStdout
+
+	// Add GOPROXY to speed up module downloads
+	modTidy.Env = append(os.Environ(), "GOPROXY=https://proxy.golang.org,direct")
+
+	sendEncryptedJSON(conn, map[string]string{"type": "log", "message": "Executing go mod tidy command..."})
+
+	// Set a timeout for go mod tidy
+	tidyDone := make(chan error, 1)
+	go func() {
+		fmt.Println("[COMPILE] go mod tidy running...")
+		tidyDone <- modTidy.Run()
+	}()
+
+	select {
+	case err := <-tidyDone:
+		if err != nil {
+			fmt.Printf("[ERROR] go mod tidy failed: %v, stderr: %s\n", err, tidyStderr.String())
+			sendEncryptedJSON(conn, map[string]string{"type": "error", "message": "go mod tidy failed: " + tidyStderr.String() + " | " + tidyStdout.String()})
+			return
+		}
+		fmt.Println("[COMPILE] go mod tidy completed successfully")
+	case <-time.After(60 * time.Second):
+		fmt.Println("[ERROR] go mod tidy timeout after 60s")
+		modTidy.Process.Kill()
+		sendEncryptedJSON(conn, map[string]string{"type": "error", "message": "go mod tidy timeout after 60s"})
 		return
 	}
+
 	sendEncryptedJSON(conn, map[string]string{"type": "log", "message": "go mod tidy completed successfully"})
 
 	sendEncryptedJSON(conn, map[string]string{"type": "log", "message": "Compiling to WebAssembly..."})
+	fmt.Println("[COMPILE] Starting WebAssembly compilation...")
 
 	outFile := filepath.Join(tmpDir, "out.wasm")
 	cmd := exec.Command("go", "build",
@@ -235,20 +285,43 @@ func compileHandler(w http.ResponseWriter, r *http.Request) {
 	cmd.Env = envList
 
 	var stderr bytes.Buffer
+	var stdout bytes.Buffer
 	cmd.Stderr = &stderr
+	cmd.Stdout = &stdout
 
-	if err := cmd.Run(); err != nil {
-		sendEncryptedJSON(conn, map[string]string{"type": "error", "message": "Compilation failed: " + stderr.String()})
+	sendEncryptedJSON(conn, map[string]string{"type": "log", "message": "Starting go build..."})
+
+	// Set a timeout for go build
+	buildDone := make(chan error, 1)
+	go func() {
+		fmt.Println("[COMPILE] go build executing...")
+		buildDone <- cmd.Run()
+	}()
+
+	select {
+	case err := <-buildDone:
+		if err != nil {
+			fmt.Printf("[ERROR] Compilation failed: %v, stderr: %s\n", err, stderr.String())
+			sendEncryptedJSON(conn, map[string]string{"type": "error", "message": "Compilation failed: " + stderr.String() + " | " + stdout.String()})
+			return
+		}
+		fmt.Println("[COMPILE] Compilation successful")
+	case <-time.After(90 * time.Second):
+		fmt.Println("[ERROR] Compilation timeout after 90s")
+		cmd.Process.Kill()
+		sendEncryptedJSON(conn, map[string]string{"type": "error", "message": "Compilation timeout after 90s"})
 		return
 	}
 
-	sendEncryptedJSON(conn, map[string]string{"type": "log", "message": "Compilation successful"})
+	sendEncryptedJSON(conn, map[string]string{"type": "log", "message": "Compilation successful, reading output file..."})
 
 	data, err := os.ReadFile(outFile)
 	if err != nil {
+		fmt.Printf("[ERROR] Failed to read output file: %v\n", err)
 		sendEncryptedJSON(conn, map[string]string{"type": "error", "message": "Failed to read output: " + err.Error()})
 		return
 	}
+	fmt.Printf("[COMPILE] WASM binary read successfully, size: %d bytes\n", len(data))
 
 	sendEncryptedJSON(conn, map[string]interface{}{
 		"type":    "success",
@@ -256,7 +329,9 @@ func compileHandler(w http.ResponseWriter, r *http.Request) {
 		"size":    len(data),
 	})
 
+	fmt.Println("[COMPILE] Sending WASM binary to client...")
 	conn.WriteMessage(websocket.BinaryMessage, data)
+	fmt.Println("[COMPILE] Compilation request completed successfully")
 }
 
 func sendEncryptedJSON(conn *websocket.Conn, data interface{}) error {
@@ -278,6 +353,9 @@ func keepAliveHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	fmt.Println("[SERVER] Starting Gogram Playground server...")
+	fmt.Printf("[SERVER] Go version: %s\n", os.Getenv("GO_VERSION"))
+
 	http.HandleFunc("/health", healthHandler)
 	http.HandleFunc("/keepalive", keepAliveHandler)
 	http.HandleFunc("/compile", compileHandler)
@@ -299,6 +377,14 @@ func main() {
 		w.Write(data)
 	})
 
-	fmt.Println("Server starting on http://localhost:10000")
-	http.ListenAndServe(":10000", nil)
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "10000"
+	}
+
+	fmt.Printf("[SERVER] Server starting on port %s\n", port)
+	fmt.Printf("[SERVER] Health check: http://localhost:%s/health\n", port)
+	if err := http.ListenAndServe(":"+port, nil); err != nil {
+		fmt.Printf("[FATAL] Server failed to start: %v\n", err)
+	}
 }
